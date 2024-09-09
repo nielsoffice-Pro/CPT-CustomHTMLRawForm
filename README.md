@@ -235,3 +235,101 @@ add_action('save_post', 'my_save_custom_meta_box_data');
 
 
 ```
+
+<h4>With TinyMCE editor custom field</h4>
+
+```PHP
+
+// Register Custom Post Type
+function my_custom_post_type() {
+    $args = array(
+        'public'    => true,
+        'label'     => 'Books',
+        'supports'  => array('title', 'editor', 'thumbnail'),
+        'menu_icon' => 'dashicons-book',
+    );
+    register_post_type('book', $args);
+}
+add_action('init', 'my_custom_post_type');
+
+// Add Meta Box with TinyMCE Editor
+function my_add_custom_meta_box() {
+    add_meta_box(
+        'my_custom_meta_box',
+        'Book Details',
+        'my_custom_meta_box_callback',
+        'book',
+        'normal',
+        'high'
+    );
+}
+add_action('add_meta_boxes', 'my_add_custom_meta_box');
+
+// Enqueue TinyMCE script for admin
+function my_enqueue_tinymce() {
+    wp_enqueue_editor();
+}
+add_action('admin_enqueue_scripts', 'my_enqueue_tinymce');
+
+// Meta Box Callback Function
+function my_custom_meta_box_callback($post) {
+    // Nonce field for security
+    wp_nonce_field('my_custom_meta_box_nonce', 'my_custom_meta_box_nonce_field');
+
+    // Retrieve existing values from the database
+    $content = get_post_meta($post->ID, '_my_custom_content', true);
+
+    // Display the fields
+    ?>
+    <div>
+        <textarea id="my_custom_content" name="my_custom_content" rows="10" cols="50"><?php echo esc_textarea($content); ?></textarea>
+    </div>
+    <script type="text/javascript">
+    jQuery(document).ready(function($) {
+        tinymce.init({
+            selector: '#my_custom_content',
+            plugins: 'link image', // Enable link and image plugins
+            toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | image', // Add image button to toolbar
+            menubar: false,
+            setup: function(editor) {
+                editor.on('change', function() {
+                    editor.save();
+                });
+            }
+        });
+    });
+    </script>
+    <?php
+}
+
+// Save Meta Box Data
+function my_save_custom_meta_box_data($post_id) {
+    // Check if nonce is set
+    if (!isset($_POST['my_custom_meta_box_nonce_field'])) {
+        return;
+    }
+
+    // Verify the nonce
+    if (!wp_verify_nonce($_POST['my_custom_meta_box_nonce_field'], 'my_custom_meta_box_nonce')) {
+        return;
+    }
+
+    // Check if this is an autosave
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+
+    // Check user permissions
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
+
+    // Save the TinyMCE content
+    if (isset($_POST['my_custom_content'])) {
+        $content = wp_kses_post($_POST['my_custom_content']);
+        update_post_meta($post_id, '_my_custom_content', $content);
+    }
+}
+add_action('save_post', 'my_save_custom_meta_box_data');
+
+```
